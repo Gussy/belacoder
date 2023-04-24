@@ -1,0 +1,29 @@
+glvideomixer name=m sink_0::zorder=0 sink_1::zorder=1 ! 
+  video/x-raw, format=NV16, width=1920, height=1080, framerate=30/1 ! 
+  videorate ! video/x-raw, framerate=30/1 ! 
+  videoconvert ! queue2 !  
+  mpph265enc bps=2500000 bps-max=2500000 name=venc_bps ! 
+  h265parse config-interval=-1 ! queue max-size-time=10000000000 max-size-buffers=1000 max-size-bytes=41943040 ! mux. 
+
+v4l2src ! 
+  identity name=v_delay signal-handoffs=TRUE ! 
+  queue2 ! 
+  glupload ! 
+  glcolorconvert ! 
+  video/x-raw(memory:GLMemory), format=BGRA, width=1920, height=1080, framerate=30/1 !
+  queue2 ! 
+  m.sink_0
+
+cefsrc url="file:///home/rock/gauge.html" gpu=true chrome-extra-flags="show-fps-counter,no-sandbox,gpu-sandbox-start-early,ignore-gpu-blacklist" ! 
+  video/x-raw, format=BGRA, width=1920, height=1080, framerate=60/1 ! 
+  cefdemux name=d 
+d.video ! 
+  videorate ! video/x-raw, framerate=30/1 ! 
+  queue max-size-bytes=0 max-size-buffers=0 max-size-time=3000000000 ! 
+  m.sink_1 
+
+alsasrc device=hw:2 ! identity name=a_delay signal-handoffs=TRUE ! volume volume=1.0 ! 
+  audioconvert ! voaacenc bitrate=128000 ! aacparse ! queue max-size-time=10000000000 max-size-buffers=1000 ! mux. 
+
+mpegtsmux name=mux ! 
+  appsink name=appsink
